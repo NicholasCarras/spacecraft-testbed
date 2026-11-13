@@ -1,5 +1,6 @@
 #include "FlightTests.h"
 #include "FlightLogic.h"
+#include "SensorProtocol.h"
 
 #include <iostream>
 #include <limits>
@@ -64,6 +65,15 @@ int runModeTests() {
     if(!checkState(invalidZActualState, invalidFaultState, "Invalid reading enters safe mode")) {
         failedTests++;
     }
+
+    SensorReading parsedReading{};
+
+    bool parsed = parseSensorMessage("ACCEL 0.1 0.0 9.81", parsedReading);
+
+    std::cout << "Parsed " << parsed << "\n";
+    std::cout << "X: " << parsedReading.accelX << "\n";
+    std::cout << "Y: " << parsedReading.accelY << "\n";
+    std::cout << "Z: " << parsedReading.accelZ << "\n";
 
     std::cout << "Failed Tests: " << failedTests << "\n";
 
