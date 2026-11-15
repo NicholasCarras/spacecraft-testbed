@@ -3,6 +3,7 @@
 #include "FlightTypes.h"
 #include "SensorProtocol.h"
 #include "SerialPort.h"
+#include "FlightLogic.h"
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -18,6 +19,9 @@ int main(int argc, char* argv[]) {
     }
 
     int validReadings = 0;
+
+    FlightState state{};
+    const double accelerationLimit = 8.0;
 
     for (int attempt = 0; attempt < 10; ++attempt) {
         std::string line;
@@ -40,6 +44,10 @@ int main(int argc, char* argv[]) {
                   << reading.accelZ << " m/s^2\n";
 
         ++validReadings;
+
+        state = calculateFlightState(state, reading, accelerationLimit);
+
+        std::cout << "Mode: " << (state.mode == FlightMode::Safe ? "Safe" : "Collecting") << '\n';
     }
 
     return validReadings > 0 ? 0 : 1;
