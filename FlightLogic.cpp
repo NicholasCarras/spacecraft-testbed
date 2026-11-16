@@ -45,3 +45,16 @@ FlightState calculateFlightState(const FlightState& currentState, const SensorRe
         return nextState;
     }
 }
+
+FlightState handleCommunicationLost(const FlightState& currentState) {
+
+    if(currentState.mode == FlightMode::Safe) {
+        return currentState;
+    }
+    
+    FlightState nextState = currentState;
+    nextState.mode = FlightMode::Safe;
+    nextState.activeFault = FaultReason::SensorCommunicationLost;
+
+    return nextState;
+}
