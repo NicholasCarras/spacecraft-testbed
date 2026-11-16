@@ -75,8 +75,6 @@ int runModeTests() {
     std::cout << "Y: " << parsedReading.accelY << "\n";
     std::cout << "Z: " << parsedReading.accelZ << "\n";
 
-    std::cout << "Failed Tests: " << failedTests << "\n";
-
     {
         FlightState initialState{};
 
@@ -98,6 +96,8 @@ int runModeTests() {
             failedTests++;
         }
     }
+
+    std::cout << "Failed Tests: " << failedTests << "\n";
 
     if(failedTests == 0) {
         return 0;

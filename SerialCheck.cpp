@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 
 #include "FlightTypes.h"
 #include "SensorProtocol.h"
@@ -9,6 +10,21 @@ int main(int argc, char* argv[]) {
     if (argc != 2) {
         std::cerr << "Usage: serial-check <device-path>\n";
         return 2;
+    }
+
+    std::ofstream logFile("sensor-log.txt", std::ios::app);
+
+    if(!logFile) {
+        std::cerr << "Could not open sensor-log.txt\n";
+        return 1;
+    }
+
+    logFile << "Run started\n";
+    logFile.flush();
+
+    if(!logFile) {
+        std::cerr << "Could not write to sensor-log.txt\n";
+        return 1;
     }
 
     SerialPort port;
@@ -29,6 +45,22 @@ int main(int argc, char* argv[]) {
         if (!port.readLine(line)) {
             
             state = handleCommunicationLost(state);
+
+            logFile << "Serial read failed or timed out | Mode: Safe\n";
+
+            if(state.activeFault == FaultReason::SensorCommunicationLost) {
+                logFile << "Fault: SensorCommunicationLost\n";
+            }
+            else {
+                logFile << "Previously recorded fault preserved\n";
+            }
+
+            logFile.flush();
+
+            if(!logFile) {
+                std::cerr << "Could not write sensor log\n";
+            }
+
             std::cerr << "Serial read failed or timed out\n";
             std::cerr << "Mode: Safe\n";
             if(state.activeFault == FaultReason::SensorCommunicationLost) {
@@ -55,6 +87,15 @@ int main(int argc, char* argv[]) {
         ++validReadings;
 
         state = calculateFlightState(state, reading, accelerationLimit);
+
+        logFile << "ACCEL " << reading.accelX << ' ' << reading.accelY << ' ' << reading.accelZ << " | Mode: " << (state.mode == FlightMode::Safe ? "Safe" : "Collecting") << '\n';
+
+        logFile.flush();
+
+        if(!logFile) {
+            std::cerr << "Could not write sensor log\n";
+            return 1;
+        }
 
         std::cout << "Mode: " << (state.mode == FlightMode::Safe ? "Safe" : "Collecting") << '\n';
     }
