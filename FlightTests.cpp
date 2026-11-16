@@ -77,6 +77,28 @@ int runModeTests() {
 
     std::cout << "Failed Tests: " << failedTests << "\n";
 
+    {
+        FlightState initialState{};
+
+        FlightState actual = handleCommunicationLost(initialState);
+
+        FlightState expected{FlightMode::Safe, FaultReason::SensorCommunicationLost};
+
+        if(!checkState(actual, expected, "Communication loss enters Safe")) {
+            failedTests++;
+        }
+    }
+
+    {
+        FlightState initialState{FlightMode::Safe, FaultReason::AccelerationAboveLimit};
+
+        FlightState actual = handleCommunicationLost(initialState);
+
+        if(!checkState(actual, initialState, "Communication loss preserves existing fault")) {
+            failedTests++;
+        }
+    }
+
     if(failedTests == 0) {
         return 0;
     }

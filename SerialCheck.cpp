@@ -27,10 +27,8 @@ int main(int argc, char* argv[]) {
         std::string line;
 
         if (!port.readLine(line)) {
-            if(state.mode != FlightMode::Safe) {
-                state.mode = FlightMode::Safe;
-                state.activeFault = FaultReason::SensorCommunicationLost;
-            }
+            
+            state = handleCommunicationLost(state);
             std::cerr << "Serial read failed or timed out\n";
             std::cerr << "Mode: Safe\n";
             if(state.activeFault == FaultReason::SensorCommunicationLost) {
