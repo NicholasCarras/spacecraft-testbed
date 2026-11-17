@@ -17,4 +17,5 @@ public:
 private:
     int fileDescriptor = -1;
     std::string pendingLine;
+    bool discardingLine = false;
 };

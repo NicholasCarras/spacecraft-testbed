@@ -18,7 +18,8 @@ enum class FaultReason {
     None,
     InvalidReading,
     AccelerationAboveLimit,
-    SensorCommunicationLost
+    SensorCommunicationLost,
+    MalformedSensorMessage
 };
 
 struct FlightState {

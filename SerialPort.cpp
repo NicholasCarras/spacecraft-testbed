@@ -97,9 +97,28 @@ bool SerialPort::readLine(std::string& line) {
         }
 
         if (character == '\n') {
-            line = pendingLine;
+            if(discardingLine) {
+                line.clear();
+                discardingLine = false;
+            }
+            else {
+                line = pendingLine;
+            }
+
             pendingLine.clear();
             return true;
+        }
+
+        if(discardingLine) {
+            continue;
+        }
+
+        constexpr std::size_t maxLineLenght = 256;
+
+        if(pendingLine.size() >= maxLineLenght) {
+            pendingLine.clear();
+            discardingLine = true;
+            continue;
         }
 
         pendingLine += character;

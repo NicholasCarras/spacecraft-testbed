@@ -18,6 +18,8 @@ const char* faultName(FaultReason fault) {
             return "AccelerationAboveLimit";
         case FaultReason::SensorCommunicationLost:
             return "SensorCommunicationLost";
+        case FaultReason::MalformedSensorMessage:
+            return "MalformedSensorMessage";
     }
     return "Unknown";
 }
@@ -57,6 +59,9 @@ int main(int argc, char* argv[]) {
     FlightState state{};
     const double accelerationLimit = 8.0;
 
+    int consecutiveMalformed = 0;
+    const int malformedLimit = 3;
+
     for (int attempt = 0; attempt < 10; ++attempt) {
         std::string line;
 
@@ -90,9 +95,39 @@ int main(int argc, char* argv[]) {
         SensorReading reading{};
 
         if (!parseSensorMessage(line, reading)) {
-            std::cerr << "Skipping unrecognized line: " << line << '\n';
+            ++consecutiveMalformed;
+
+            if (consecutiveMalformed >= malformedLimit &&
+                state.mode != FlightMode::Safe) {
+                state.mode = FlightMode::Safe;
+                state.activeFault = FaultReason::MalformedSensorMessage;
+            }
+
+            const auto elapsedMs =
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now() - runStart
+                ).count();
+
+            logFile << "t_ms=" << elapsedMs
+                    << " Malformed message"
+                    << " | Consecutive: " << consecutiveMalformed
+                    << " | Mode: "
+                    << (state.mode == FlightMode::Safe ? "Safe" : "Collecting")
+                    << " | Fault: " << faultName(state.activeFault)
+                    << '\n';
+
+            logFile.flush();
+
+            if (!logFile) {
+                std::cerr << "Could not write sensor log\n";
+                return 1;
+            }
+
+            std::cerr << "Skipping malformed message: " << line << '\n';
             continue;
         }
+
+        consecutiveMalformed = 0;
 
         std::cout << "Parsed acceleration: "
                   << reading.accelX << ", "
