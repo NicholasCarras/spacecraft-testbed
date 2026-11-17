@@ -1,10 +1,26 @@
 #include <iostream>
 #include <fstream>
+#include <chrono>
 
 #include "FlightTypes.h"
 #include "SensorProtocol.h"
 #include "SerialPort.h"
 #include "FlightLogic.h"
+
+const char* faultName(FaultReason fault) {
+
+    switch(fault) {
+        case FaultReason::None:
+            return "None";
+        case FaultReason::InvalidReading:
+            return "InvalidReading";
+        case FaultReason::AccelerationAboveLimit:
+            return "AccelerationAboveLimit";
+        case FaultReason::SensorCommunicationLost:
+            return "SensorCommunicationLost";
+    }
+    return "Unknown";
+}
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -18,6 +34,8 @@ int main(int argc, char* argv[]) {
         std::cerr << "Could not open sensor-log.txt\n";
         return 1;
     }
+
+    const auto runStart = std::chrono::steady_clock::now();
 
     logFile << "Run started\n";
     logFile.flush();
@@ -46,14 +64,11 @@ int main(int argc, char* argv[]) {
             
             state = handleCommunicationLost(state);
 
-            logFile << "Serial read failed or timed out | Mode: Safe\n";
+            const auto faultElapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - runStart).count();
 
-            if(state.activeFault == FaultReason::SensorCommunicationLost) {
-                logFile << "Fault: SensorCommunicationLost\n";
-            }
-            else {
-                logFile << "Previously recorded fault preserved\n";
-            }
+            logFile << "t_ms " << faultElapsedMs << " Serial read failed or timed out | Mode: Safe\n";
+
+            logFile << "Fault: " << faultName(state.activeFault) << '\n';
 
             logFile.flush();
 
@@ -88,7 +103,9 @@ int main(int argc, char* argv[]) {
 
         state = calculateFlightState(state, reading, accelerationLimit);
 
-        logFile << "ACCEL " << reading.accelX << ' ' << reading.accelY << ' ' << reading.accelZ << " | Mode: " << (state.mode == FlightMode::Safe ? "Safe" : "Collecting") << '\n';
+        const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - runStart).count();
+
+        logFile << "t_ms " << elapsedMs << " ACCEL " << reading.accelX << ' ' << reading.accelY << ' ' << reading.accelZ << " | Mode: " << (state.mode == FlightMode::Safe ? "Safe" : "Collecting") << " | Fault: " << faultName(state.activeFault) << '\n';
 
         logFile.flush();
 

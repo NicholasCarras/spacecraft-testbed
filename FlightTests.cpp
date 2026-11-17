@@ -97,6 +97,62 @@ int runModeTests() {
         }
     }
 
+    {
+        SensorReading reading{1.0, 2.0, 3.0};
+
+        bool parsed = parseSensorMessage("ACCEL 0.1 0.0", reading);
+
+        if(!parsed && reading.accelX == 1.0 && reading.accelY == 2.0 && reading.accelZ == 3.0) {
+            std::cout << "PASS: Missing Z rejected without changing reading\n";
+        }
+        else {
+            std::cout << "FAIL: Missing Z handling\n";
+            failedTests++;
+        }
+    }
+
+    {
+        SensorReading reading{1.0, 2.0, 3.0};
+
+        bool parsed = parseSensorMessage("ACCEL hello 0.0 9.81", reading);
+
+        if(!parsed && reading.accelX == 1.0 && reading.accelY == 2.0 && reading.accelZ == 3.0) {
+            std::cout << "PASS: Nonnumeric X Rejected\n";
+        }
+        else {
+            std::cout << "FAIL: Nonnumeric X accepted or reading changed\n";
+            failedTests++;
+        }
+    }
+
+    {
+        SensorReading reading{1.0, 2.0, 3.0};
+
+        bool parsed = parseSensorMessage("STATUS 0.1 0.0 9.81", reading);
+
+        if(!parsed && reading.accelX == 1.0 && reading.accelY == 2.0 && reading.accelZ == 3.0) {
+            std::cout << "PASS: Wrong message type rejected\n";
+        }
+        else {
+            std::cout << "FAIL: Wrong message type accepted or reading changed\n";
+            failedTests++;
+        }
+    }
+
+    {
+        SensorReading reading{1.0, 2.0, 3.0};
+
+        bool parsed = parseSensorMessage("ACCEL 0.1 0.0 9.81 extra", reading);
+
+        if(!parsed && reading.accelX == 1.0 && reading.accelY == 2.0 && reading.accelZ == 3.0) {
+            std::cout << "PASS: Extra text rejected\n";
+        }
+        else {
+            std::cout << "FAIL: Extra text accepted or reading changed\n";
+            failedTests++;
+        }
+    }
+
     std::cout << "Failed Tests: " << failedTests << "\n";
 
     if(failedTests == 0) {
