@@ -8,9 +8,7 @@
 #include <poll.h>
 
 SerialPort::~SerialPort() {
-    if(fileDescriptor >= 0) {
-        close(fileDescriptor);
-    }
+    closePort();
 }
 
 bool SerialPort::openPort(const std::string& devicePath) {
@@ -123,4 +121,14 @@ bool SerialPort::readLine(std::string& line) {
 
         pendingLine += character;
     }
+}
+
+void SerialPort::closePort() {
+    if(fileDescriptor >= 0) {
+        close(fileDescriptor);
+        fileDescriptor = -1;
+    }
+
+    pendingLine.clear();
+    discardingLine = false;
 }

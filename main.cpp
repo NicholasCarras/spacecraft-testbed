@@ -149,7 +149,46 @@ int runSerialMission(const std::string& devicePath) {
     int consecutiveMalformed = 0;
     const int malformedLimit = 3;
 
+    bool sensorReadsAvailable = true;
+
     while(!stopRequested) {
+
+        if(!sensorReadsAvailable) {
+            const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - runStart).count();
+
+            std::cout << "SAFE: Sensor reads stopped | Fault: " << faultName(state.activeFault) << '\n';
+
+            logFile << "t_ms= " << elapsedMs << " Status | Mode: Safe | Sensor reads: stopped" << " Fault: " << faultName(state.activeFault) << '\n';
+
+            logFile.flush();
+
+            if(!logFile) {
+                std::cerr << "Could not write sensor log\n";
+                return 1;
+            }
+
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            if(stopRequested) {
+                break;
+            }
+
+            if(port.openPort(devicePath)) {
+                sensorReadsAvailable = true;
+                consecutiveMalformed = 0;
+
+                std::cout << "serial port reopened; awaiting valid sensor data\n";
+
+                logFile << "Serial port reopened | Mode: Safe | Fault: " << faultName(state.activeFault) << '\n';
+                logFile.flush();
+
+                if(!logFile) {
+                    std::cerr << "Could not write sensor log\n";
+                    return 1;
+                }
+            }
+            continue;
+        }
+
         std::string line;
 
         bool receivedLine = port.readLine(line);
@@ -159,6 +198,8 @@ int runSerialMission(const std::string& devicePath) {
         }
 
         if(!receivedLine) {
+
+            port.closePort();
             
             state = handleCommunicationLost(state);
 
@@ -172,6 +213,7 @@ int runSerialMission(const std::string& devicePath) {
 
             if(!logFile) {
                 std::cerr << "Could not write sensor log\n";
+                return 1;
             }
 
             std::cerr << "Serial read failed or timed out\n";
@@ -182,7 +224,8 @@ int runSerialMission(const std::string& devicePath) {
             else {
                 std::cerr << "Previously recorded fault preserved\n";
             }
-            return 1;
+            sensorReadsAvailable = false;
+            continue;
         }
 
         SensorReading reading{};

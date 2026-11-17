@@ -14,6 +14,8 @@ public:
     bool openPort(const std::string& devicePath);
     bool readLine(std::string& line);
 
+    void closePort();
+
 private:
     int fileDescriptor = -1;
     std::string pendingLine;
