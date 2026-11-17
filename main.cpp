@@ -3,12 +3,19 @@
 #include <chrono>
 #include <thread>
 #include <fstream>
+#include <csignal>
 
 #include "FlightTypes.h"
 #include "FlightLogic.h"
 #include "FlightTests.h"
 #include "SerialPort.h"
 #include "SensorProtocol.h"
+
+volatile std::sig_atomic_t stopRequested = 0;
+
+void requestStop(int) {
+    stopRequested = 1;
+}
 
 void printReading(const SensorReading& reading) {
 
@@ -105,6 +112,13 @@ void runMission() {
 
 int runSerialMission(const std::string& devicePath) {
 
+    stopRequested = 0;
+
+    if(std::signal(SIGINT, requestStop) == SIG_ERR || std::signal(SIGTERM, requestStop) == SIG_ERR) {
+        std::cerr << "Could not install shutdown handlers\n";
+        return 1;
+    }
+
     std::ofstream logFile("sensor-log.txt", std::ios::app);
 
     if(!logFile) {
@@ -129,18 +143,22 @@ int runSerialMission(const std::string& devicePath) {
         return 1;
     }
 
-    int validReadings = 0;
-
     FlightState state{};
     const double accelerationLimit = 8.0;
 
     int consecutiveMalformed = 0;
     const int malformedLimit = 3;
 
-    for (int attempt = 0; attempt < 10; ++attempt) {
+    while(!stopRequested) {
         std::string line;
 
-        if (!port.readLine(line)) {
+        bool receivedLine = port.readLine(line);
+
+        if(stopRequested) {
+            break;
+        }
+
+        if(!receivedLine) {
             
             state = handleCommunicationLost(state);
 
@@ -170,7 +188,9 @@ int runSerialMission(const std::string& devicePath) {
         SensorReading reading{};
 
         if (!parseSensorMessage(line, reading)) {
-            ++consecutiveMalformed;
+            if(consecutiveMalformed < malformedLimit) {
+                consecutiveMalformed++;
+            }
 
             if (consecutiveMalformed >= malformedLimit &&
                 state.mode != FlightMode::Safe) {
@@ -209,8 +229,6 @@ int runSerialMission(const std::string& devicePath) {
                   << reading.accelY << ", "
                   << reading.accelZ << " m/s^2\n";
 
-        ++validReadings;
-
         state = calculateFlightState(state, reading, accelerationLimit);
 
         const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - runStart).count();
@@ -227,7 +245,16 @@ int runSerialMission(const std::string& devicePath) {
         std::cout << "Mode: " << (state.mode == FlightMode::Safe ? "Safe" : "Collecting") << '\n';
     }
 
-    return validReadings > 0 ? 0 : 1;
+    logFile << "Run stopped by request | Fault: " << faultName(state.activeFault) << '\n';
+    logFile.flush();
+
+    if(!logFile) {
+        std::cerr << "Could not write shutdown log\n";
+        return 1;
+    }
+
+    std::cout << "Serial mission stopped\n";
+    return 0;
 }
 
 int main(int argc, char* argv[]) {
